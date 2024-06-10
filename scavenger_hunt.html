@@ -1,0 +1,119 @@
+<div>Teachable Machine Image Model</div>
+<button type="button" onclick="init()">Start</button>
+<div id="question-container"></div>
+<div id="webcam-container"></div>
+<div id="label-container"></div>
+<div id="score-container">Score: 0</div>
+<button onclick="skipQuestion()">Skip</button>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<script type="text/javascript">
+    // More API functions here:
+    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+
+    // the link to your model provided by Teachable Machine export panel
+    const URL = "https://teachablemachine.withgoogle.com/models/K6tcbDhZH/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    let score = 0;
+    let currentQuestionIndex = 0;
+
+    const questions = [
+            "Had food? -> Red Board",
+            "We are committed to achieve organization's growth -> Autograph",
+            "I hum in the break room, a daily delight. Giving employees a much needed respite by turning beans into liquid gold -> Coffee Machine",
+            "I am the sign that says 'Challenge your limits' with an arrow -> Arrow",
+            "With unity & trust, we conquer the peak. Together we rise, even mountains we seek -> Climbing Up Mountain",
+            "Where have you seen the symbol of hope (S) from DC comics here in Experion -> Superman",
+            "Something related to ISRO here in Experion -> Rocket",
+            "Fish, burger & soup -> Wall Food Art",
+            "Puttu : Beef : : Fish Curry : ? -> Fish Curry",
+            "Without idli, there is no chutney. Without chutney, there is no idli -> Chutney",
+            "Where _ meets _ -> Stew",
+            "After John, I am the first one to know when someone enters the office -> Scanner",
+            "During breaks, I am your friend. A time to relax, a moment to spend filled with tea or coffee warm, I fit right in your palms' form. What am I? -> Tea Cup",
+            "Whenever you take a break, I remind you to be creative -> Creative",
+            "The yummiest irachi pidi -> Irachi Pidi",
+            "I'm red & ready, in case of a blaze, with a nozzle to spray & put out the craze -> Fire Extinguisher",
+            "The inseparable duo -> Puttu & Kadala"
+        ];
+
+
+    // Load the image model and setup the webcam
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        // load the model and metadata
+        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+        // or files from your local hard drive
+        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        // Convenience function to setup a webcam
+        const flip = true; // whether to flip the webcam
+        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+        await webcam.setup(); // request access to the webcam
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        // append elements to the DOM
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        // labelContainer = document.getElementById("label-container");
+        // for (let i = 0; i < maxPredictions; i++) { // and class labels
+        //     labelContainer.appendChild(document.createElement("div"));
+        // }
+        showQuestion();
+    }
+
+    async function loop() {
+        webcam.update(); // update the webcam frame
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    //Display the current question
+    function showQuestion(){
+        const questionContainer = document.getElementById("question-container");
+        questionContainer.innerHTML = questions[currentQuestionIndex].split(" -> ")[0];
+    }
+
+    //Update the score display
+    function updateScore(){
+        const scoreContainer = document.getElementById("score-container");
+        scoreContainer.innerHTML = "Score: " + score;
+    }
+
+    function skipQuestion(){
+        currentQuestionIndex = (currentQuestionIndex + 1) % questions.length;
+        showQuestion();
+    }
+
+    // run the webcam image through the image model
+    async function predict() {
+        // predict can take in an image, video or canvas html element
+        const prediction = await model.predict(webcam.canvas);
+
+        let correct = false;
+
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction =
+                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+
+            if(prediction[i].className === questions[currentQuestionIndex].split(" -> ")[1] && prediction[i].probability > 0.865){
+                correct = true
+            }
+        }
+        //Increment score if the answer is correct and move to the next question
+        if(correct){
+            score += 1;
+            updateScore();
+            currentQuestionIndex = (currentQuestionIndex + 1) % questions.length;
+            showQuestion();
+        }
+    }
+    init();
+</script>
